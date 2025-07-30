@@ -1,0 +1,15 @@
+# Core FastAPI dependencies
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0 # ASGI server for FastAPI
+python-multipart>=0.0.5 # For handling file uploads in FastAPI
+
+# Machine Learning and Image Processing libraries
+tensorflow>=2.5.0 # For loading and running Keras models (.h5)
+numpy>=1.20.0     # For numerical operations on arrays
+opencv-python>=4.5.0 # For image preprocessing (cv2)
+
+# Data validation (used by FastAPI, good to explicitly include)
+pydantic>=1.8.0
+
+# For loading the .pkl model (as it was saved with joblib)
+joblib>=1.0.0
