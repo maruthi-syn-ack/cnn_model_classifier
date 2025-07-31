@@ -60,7 +60,8 @@ if uploaded_file:
 
                 # Display Segmentation Mask
                 segmented_mask_b64 = data.get("segmented_mask_png_base64")
-                if segmented_mask_b64 and not isinstance(segmented_mask_b64, str): # Check if it's a string, not an error message
+                
+                if segmented_mask_b64 and isinstance(segmented_mask_b64, str) and not segmented_mask_b64.startswith("Segmentation") and not segmented_mask_b64.startswith("Error"):
                     try:
                         # Decode base64 string back to bytes
                         decoded_img_bytes = base64.b64decode(segmented_mask_b64)
@@ -69,11 +70,12 @@ if uploaded_file:
                         st.subheader("Segmented Optic Disc & Cup")
                         st.image(segmented_image, caption="Optic Disc (Green), Optic Cup (Red)", use_column_width=True)
                     except Exception as e:
-                        st.warning(f"Could not display segmentation mask: {e}. Raw data might be an error message.")
-                        st.text(segmented_mask_b64) # Show raw text if it's an error message
-                elif segmented_mask_b64: # It's a string, but potentially an error message from backend
+                        st.warning(f"Could not display segmentation mask: {e}")
+                        st.text(segmented_mask_b64)
+                elif segmented_mask_b64 and isinstance(segmented_mask_b64, str):
+                    # It's an error/status message from backend
                     st.subheader("Segmented Optic Disc & Cup")
-                    st.info(f"Segmentation Status: {segmented_mask_b64}") # Display backend message
+                    st.info(f"Segmentation Status: {segmented_mask_b64}")
                 else:
                     st.subheader("Segmented Optic Disc & Cup")
                     st.info("Segmentation not available (e.g., no glaucoma detected or error).")

@@ -15,43 +15,8 @@ KerasModel = Any # Type hint for a loaded Keras model (tf.keras.Model)
 PickleModel = Any # Type hint for a loaded joblib/pickle model (any Python object with a .predict method)
 
 # ==============================================================================
-# IMPORTANT: SeverityClassifier class definition moved here
-# This is crucial for joblib to find the class when loading the model.
-# ==============================================================================
-class SeverityClassifier:
-    """
-    Rule-based classifier for glaucoma severity based on CDR percentage.
-    This class matches the structure of the model saved by joblib in your training notebook.
-    """
-    def predict(self, cdr_percent: Union[float, np.ndarray, list]) -> str:
-        """
-        Predicts severity (Mild, Moderate, Severe) based on the CDR percentage.
-
-        Args:
-            cdr_percent (Union[float, np.ndarray, list]): The Cup-to-Disc Ratio percentage.
-                                                       Can be a single float or a list/array
-                                                       (the first element will be used).
-
-        Returns:
-            str: The predicted severity label ("Mild", "Moderate", or "Severe").
-        """
-        # Ensure cdr_percent is treated as a single scalar value for the rule
-        if isinstance(cdr_percent, (np.ndarray, list, tuple)):
-            if len(cdr_percent) > 0:
-                cdr_percent = float(cdr_percent[0]) # Take the first element and ensure it's a float
-            else:
-                # Handle empty array/list case, return a default for calculation failure
-                # This should ideally not happen if segmentation is successful
-                return "Error: No CDR data for severity prediction."
-        else:
-            cdr_percent = float(cdr_percent) # Ensure it's a float
-
-        if cdr_percent < 50:
-            return "Mild"
-        elif 50 <= cdr_percent < 80:
-            return "Moderate"
-        else:
-            return "Severe"
+# SeverityClassifier class moved to ml_core.severity_classifier module
+# Import it from there for joblib model loading
 # ==============================================================================
 
 
@@ -102,8 +67,8 @@ def predict_glaucoma_classification(preprocessed_image: np.ndarray, cnn_classifi
     """
     prediction = cnn_classifier_model.predict(preprocessed_image)
     confidence_score = float(prediction[0][0])
-    is_glaucoma = int(confidence_score <= GLAUCOMA_THRESHOLD)
-    # is_glaucoma = int(confidence_score > GLAUCOMA_THRESHOLD) # This will be 1 if True, 0 if False
+    # is_glaucoma = int(confidence_score <= GLAUCOMA_THRESHOLD)
+    is_glaucoma = int(confidence_score > GLAUCOMA_THRESHOLD) # This will be 1 if True, 0 if False
 
     return is_glaucoma, confidence_score
 
@@ -177,10 +142,22 @@ def predict_severity(glaucoma_status: int, segmented_mask: np.ndarray, severity_
     cdr_percent = calculate_cdr_percent(segmented_mask)
 
     # Use the loaded rule-based model to predict severity
-    # Note: severity_rule_model.predict expects a single float/int
-    severity_label = severity_rule_model.predict(cdr_percent)
-
-    return severity_label
+    # Reshape scalar to 2D array as expected by scikit-learn models
+    cdr_input = np.array([[cdr_percent]])  # Shape: (1, 1)
+    severity_label = severity_rule_model.predict(cdr_input)[0]
+    
+    # Ensure the result is always a string
+    if isinstance(severity_label, (np.number, float, int)):
+        # Convert numeric predictions to string labels
+        cdr_value = float(severity_label)
+        if cdr_value < 50:
+            return "Mild"
+        elif 50 <= cdr_value < 80:
+            return "Moderate"
+        else:
+            return "Severe"
+    
+    return str(severity_label)
 
 
 def create_mask_visualization(segmented_mask: np.ndarray) -> str:
@@ -204,6 +181,25 @@ def create_mask_visualization(segmented_mask: np.ndarray) -> str:
     if not is_success:
         raise ValueError("Could not encode segmented mask to PNG.")
     return base64.b64encode(buffer).decode("utf-8")
+
+def get_segmentation_image_array(segmented_mask: np.ndarray) -> np.ndarray:
+    """
+    Converts a segmented mask (0, 1, 2 values) into a color-coded image array
+    for direct visualization, similar to the training notebook.
+
+    Args:
+        segmented_mask (np.ndarray): The segmented mask (H, W).
+
+    Returns:
+        np.ndarray: Color-coded image array (H, W, 3) with RGB colors.
+    """
+    mask_display = np.zeros((IMG_HEIGHT, IMG_WIDTH, 3), dtype=np.uint8)
+    # Yellow for Optic Disc (matching training notebook)
+    mask_display[segmented_mask == SEG_OPTIC_DISC] = [255, 255, 0]
+    # Red for Optic Cup (matching training notebook)
+    mask_display[segmented_mask == SEG_OPTIC_CUP] = [255, 0, 0]
+    
+    return mask_display
 
 # --- Full Pipeline Orchestrator ---
 async def run_full_pipeline(

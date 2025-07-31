@@ -6,6 +6,8 @@ from typing import Optional, Any
 
 # Import configurations
 from .config import CNN_CLASSIFIER_MODEL_PATH, UNET_SEGMENTATION_MODEL_PATH, SEVERITY_MODEL_PATH
+# Import SeverityClassifier for joblib model loading
+from .ml_core.severity_classifier import SeverityClassifier
 
 logger = logging.getLogger("glaucoma_pipeline")
 
